@@ -1,0 +1,980 @@
+<!DOCTYPE html>
+<html lang="zh-Hans">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex,nofollow" />
+<title>GBT 模拟交易看板 · 本地演示</title>
+<style>
+  :root {
+    --bg: #f4f5f7;
+    --card: #ffffff;
+    --ink: #1f2430;
+    --muted: #6b7280;
+    --line: #e5e7eb;
+    --line2: #d1d5db;
+    --purple: #7c6cf0;
+    --purple-soft: #ede9fe;
+    --green: #12b886;
+    --green-soft: #d3f9d8;
+    --orange: #f59f00;
+    --orange-soft: #fff3bf;
+    --red: #e03131;
+    --red-soft: #ffe3e3;
+    --brown: #8d6e63;
+    --brown-soft: #efebe9;
+    --blue: #4c6ef5;
+    --blue-soft: #e7f5ff;
+    --pink: #e64980;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "PingFang SC", "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: var(--bg); color: var(--ink); font-family: var(--mono); }
+  body { min-height: 100vh; }
+  button { font-family: inherit; cursor: pointer; }
+  .banner {
+    background: #fff3bf;
+    border-bottom: 2px solid #f59f00;
+    color: #7c2d12;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+  }
+  .banner strong { color: #c92a2a; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 14px 16px 28px; }
+  .header {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 12px;
+  }
+  .pause-btn {
+    width: 56px; height: 56px; border-radius: 50%;
+    border: 2px solid var(--line2); background: #fff;
+    display: grid; place-items: center; flex-shrink: 0;
+    box-shadow: 0 1px 2px rgba(0,0,0,.04);
+  }
+  .pause-btn:hover { border-color: var(--purple); }
+  .pause-btn .icon { width: 22px; height: 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .pause-btn .icon i { background: var(--ink); border-radius: 2px; }
+  .pause-btn.playing .icon { display: none; }
+  .pause-btn .play { display: none; width: 0; height: 0; border-left: 16px solid var(--ink); border-top: 10px solid transparent; border-bottom: 10px solid transparent; margin-left: 3px; }
+  .pause-btn.playing .play { display: block; }
+  .title-block h1 { margin: 0; font-size: 22px; letter-spacing: -0.02em; font-family: var(--sans); font-weight: 800; }
+  .title-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 4px; font-size: 11px; color: var(--muted); }
+  .dot-live { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; box-shadow: 0 0 0 3px rgba(18,184,134,.18); }
+  .dot-live.off { background: #adb5bd; box-shadow: none; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 4px;
+    border: 1px solid var(--line2); background: #fff;
+    border-radius: 999px; padding: 2px 8px; font-size: 10px; color: var(--muted);
+  }
+  .pill.night { background: #212529; color: #fff; border-color: #212529; }
+  .pill.purple { background: var(--purple-soft); color: #5f3dc4; border-color: #d0bfff; }
+  .pill.green { background: var(--green-soft); color: #087f5b; border-color: #8ce99a; }
+  .pill.orange { background: var(--orange-soft); color: #e67700; border-color: #ffe066; }
+  .pill.red { background: var(--red-soft); color: #c92a2a; border-color: #ffa8a8; }
+  .pill.blue { background: var(--blue-soft); color: #364fc7; border-color: #a5d8ff; }
+  .pill.brown { background: var(--brown-soft); color: #6d4c41; border-color: #d7ccc8; }
+  .slogan { color: var(--muted); font-size: 11px; }
+  .stats {
+    display: flex; gap: 14px; align-items: flex-end; text-align: right;
+  }
+  .stat { min-width: 64px; }
+  .stat .lbl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  .stat .val { font-size: 22px; font-weight: 800; line-height: 1.1; }
+  .stat .val.green { color: var(--green); }
+  .stat .val.purple { color: var(--purple); }
+  .stat .val.big { font-size: 28px; }
+  .stat .sub { font-size: 9px; color: #c92a2a; font-weight: 700; }
+  .controls {
+    display: flex; gap: 6px; justify-content: flex-end; margin-top: 6px;
+  }
+  .controls button {
+    border: 1px solid var(--line2); background: #fff; border-radius: 8px;
+    padding: 5px 10px; font-size: 11px; color: var(--ink);
+  }
+  .controls button:hover { border-color: var(--purple); color: #5f3dc4; }
+  .controls button:disabled { opacity: .45; cursor: not-allowed; }
+  .controls button.primary { background: var(--purple-soft); border-color: #d0bfff; color: #5f3dc4; font-weight: 700; }
+  .main {
+    display: grid;
+    grid-template-columns: 250px 1fr;
+    gap: 12px;
+    align-items: start;
+  }
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .panel h2 {
+    margin: 0 0 8px; font-size: 11px; color: var(--muted);
+    letter-spacing: .08em; text-transform: uppercase; font-weight: 700;
+  }
+  .agents { display: flex; flex-direction: column; gap: 8px; }
+  .agent {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 8px 9px;
+    background: #fff;
+    display: grid;
+    grid-template-columns: 28px 1fr auto;
+    gap: 8px;
+    align-items: start;
+    transition: box-shadow .15s, border-color .15s, background .15s;
+  }
+  .agent:hover, .agent.active {
+    border-color: var(--purple);
+    box-shadow: 0 0 0 2px rgba(124,108,240,.12);
+    background: #fbfaff;
+  }
+  .agent .glyph {
+    width: 28px; height: 28px; border-radius: 8px;
+    display: grid; place-items: center; font-size: 14px; font-weight: 800;
+  }
+  .agent .name { font-size: 12px; font-weight: 800; margin: 0; font-family: var(--sans); }
+  .agent .desc { font-size: 10px; color: var(--muted); margin-top: 2px; line-height: 1.35; }
+  .agent .note { font-size: 9px; color: #9ca3af; margin-top: 3px; }
+  .agent .badge { font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 999px; border: 1px solid var(--line2); }
+  .g-scan { background: var(--orange-soft); color: #e67700; }
+  .g-risk { background: var(--red-soft); color: #c92a2a; }
+  .g-size { background: var(--purple-soft); color: #5f3dc4; }
+  .g-exec { background: var(--green-soft); color: #087f5b; }
+  .g-log { background: var(--brown-soft); color: #6d4c41; }
+  .g-eq { background: var(--blue-soft); color: #364fc7; }
+  .you {
+    margin-top: 4px; border: 1px dashed var(--line2); border-radius: 10px;
+    padding: 8px 9px; display: flex; justify-content: space-between; align-items: center;
+    font-size: 11px; color: var(--muted); background: #fafafa;
+  }
+  .you strong { color: var(--ink); }
+  .right { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .flow {
+    position: relative; min-height: 210px; overflow: visible;
+  }
+  .flow-canvas {
+    position: relative; width: 100%; margin-bottom: 8px;
+    overflow: visible; /* 不裁切；靠等比缩放完整显示 */
+  }
+  .flow-stage {
+    position: relative;
+    width: 720px; /* 设计稿宽度：含风控/执行节点与曲线 */
+    height: 160px;
+    transform-origin: top left;
+    will-change: transform;
+  }
+  .flow-pipeline {
+    display: grid;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    gap: 4px;
+    margin-bottom: 8px;
+  }
+  .flow-pipeline .pnode {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 5px 4px;
+    text-align: center;
+    background: #fafafa;
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--muted);
+    min-width: 0;
+  }
+  .flow-pipeline .pnode em {
+    display: block; font-style: normal; font-size: 9px; font-weight: 600;
+    color: #9ca3af; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .flow-pipeline .pnode.on { color: var(--ink); border-color: #d0bfff; background: var(--purple-soft); }
+  .sig {
+    position: absolute; border: 1px solid var(--line2); background: #fff;
+    border-radius: 8px; padding: 5px 8px; font-size: 10px;
+    box-shadow: 0 1px 2px rgba(0,0,0,.03);
+    transition: opacity .2s, transform .2s;
+  }
+  .sig .sym { font-weight: 800; }
+  .sig .tag { color: var(--muted); font-size: 9px; }
+  .node {
+    position: absolute; width: 54px; height: 54px; border-radius: 50%;
+    border: 2px solid var(--line2); background: #fff;
+    display: grid; place-items: center; font-size: 10px; font-weight: 800;
+    z-index: 2;
+  }
+  .node.risk { border-color: #ffa8a8; color: #c92a2a; }
+  .node.exec { border-color: #8ce99a; color: #087f5b; }
+  .node.active { box-shadow: 0 0 0 4px rgba(124,108,240,.15); }
+  svg.wires { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .flow-foot {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+  }
+  .mini {
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fafafa;
+    font-size: 10px;
+  }
+  .mini .k { color: var(--muted); font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+  .mini .v { font-weight: 700; margin-top: 2px; }
+  .mid {
+    display: grid; grid-template-columns: 1.05fr 1fr; gap: 10px;
+  }
+  .trade-card .row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px;
+  }
+  .kv {
+    border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; background: #fafafa;
+  }
+  .kv .k { font-size: 9px; color: var(--muted); text-transform: uppercase; }
+  .kv .v { font-size: 11px; font-weight: 700; margin-top: 2px; }
+  .reason {
+    margin-top: 8px; border: 1px dashed var(--line2); border-radius: 8px;
+    padding: 7px 8px; font-size: 11px; background: #fcfcff;
+  }
+  .reason .k { color: var(--muted); font-size: 9px; text-transform: uppercase; }
+  .sim-tag {
+    display: inline-block; margin-left: 6px; font-size: 9px; color: #c92a2a;
+    border: 1px solid #ffa8a8; background: #fff5f5; border-radius: 999px; padding: 1px 6px; font-weight: 700;
+  }
+  .logbox {
+    background: #111827; color: #d1fae5; border-radius: 10px; border: 1px solid #1f2937;
+    padding: 8px 10px; font-size: 11px; min-height: 148px; max-height: 180px; overflow: auto;
+  }
+  .logbox .head { color: #9ca3af; margin-bottom: 6px; font-size: 10px; }
+  .logbox .line { white-space: pre-wrap; line-height: 1.45; }
+  .logbox .line .ts { color: #6ee7b7; }
+  .logbox .line .warn { color: #fca5a5; }
+  .logbox .line .info { color: #93c5fd; }
+  .bottom {
+    display: grid; grid-template-columns: 280px 1fr; gap: 10px;
+  }
+  .bars { display: flex; flex-direction: column; gap: 10px; justify-content: center; padding: 8px 4px; }
+  .bar-row { display: grid; grid-template-columns: 48px 1fr 72px; gap: 8px; align-items: center; font-size: 11px; }
+  .bar-track { height: 10px; background: #eef2f7; border-radius: 999px; overflow: hidden; position: relative; }
+  .bar-fill { height: 100%; background: linear-gradient(90deg, #8ce99a, var(--green)); border-radius: 999px; width: 0; transition: width .35s ease; }
+  .bar-dot {
+    width: 10px; height: 10px; border-radius: 50%; background: #adb5bd; display: inline-block;
+  }
+  .bar-meta { font-size: 10px; color: var(--muted); margin-top: 6px; }
+  table.decisions {
+    width: 100%; border-collapse: collapse; font-size: 10px;
+  }
+  table.decisions th, table.decisions td {
+    border-bottom: 1px solid var(--line); padding: 6px 6px; text-align: left; vertical-align: top;
+  }
+  table.decisions th { color: var(--muted); font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: .04em; }
+  .foot-note {
+    margin-top: 12px; font-size: 10px; color: var(--muted); line-height: 1.5;
+    border-top: 1px dashed var(--line2); padding-top: 10px;
+  }
+  .curve-svg { width: 100%; height: 56px; display: block; }
+  @media (max-width: 980px) {
+    .main, .mid, .bottom, .header { grid-template-columns: 1fr; }
+    .stats { justify-content: flex-start; flex-wrap: wrap; text-align: left; }
+    .flow-foot { grid-template-columns: 1fr 1fr; }
+    .controls { justify-content: flex-start; flex-wrap: wrap; }
+    .wrap { padding: 10px 10px 24px; }
+  }
+  @media (max-width: 480px) {
+    .flow-pipeline { gap: 3px; }
+    .flow-pipeline .pnode { font-size: 9px; padding: 4px 2px; }
+    .flow-pipeline .pnode em { font-size: 8px; }
+    .flow-foot { grid-template-columns: 1fr 1fr; }
+    .title-block h1 { font-size: 18px; }
+    .stat .val.big { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+  <div class="banner">
+    <strong>模拟交易 · 全部为演示数据 · 非真实业绩</strong>
+    · 不接实盘 / 不接资金 / 不接行情 · 本地展示专用 · 虚拟标的 DEMO-* 不是真实证券
+  </div>
+  <div class="wrap">
+    <header class="header">
+      <button class="pause-btn" id="btnToggle" type="button" title="暂停/继续演示" aria-label="暂停或继续演示">
+        <span class="icon" aria-hidden="true"><i></i><i></i></span>
+        <span class="play" aria-hidden="true"></span>
+      </button>
+      <div class="title-block">
+        <h1>GBT 模拟交易看板</h1>
+        <div class="title-meta">
+          <span class="dot-live off" id="liveDot"></span>
+          <span id="runLabel">已暂停 · 本地演示</span>
+          <span class="pill night">演示</span>
+          <span class="pill purple" id="activeRolePill">待命</span>
+          <span class="pill" id="skipPill">尚未跳过</span>
+          <span class="slogan">每笔模拟成交都有原因 · 非官方 Grok 产品</span>
+        </div>
+      </div>
+      <div>
+        <div class="stats">
+          <div class="stat">
+            <div class="lbl">模拟余额</div>
+            <div class="val big" id="balVal">1000.00</div>
+            <div class="sub">演示单位 · 非真实资金</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">步骤</div>
+            <div class="val green" id="stepVal">0/8</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">角色</div>
+            <div class="val">6</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">模拟倍数</div>
+            <div class="val purple" id="multVal">1.00x</div>
+            <div class="sub">相对起始模拟余额</div>
+          </div>
+        </div>
+        <div class="controls">
+          <button type="button" class="primary" id="btnToggle2">继续演示</button>
+          <button type="button" id="btnStep">单步推进</button>
+          <button type="button" id="btnReset">重置演示</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="main">
+      <aside class="panel">
+        <h2>角色 AGENTS</h2>
+        <div class="agents" id="agents">
+          <button class="agent" data-role="scanner" type="button">
+            <div class="glyph g-scan">扫</div>
+            <div>
+              <p class="name">扫描</p>
+              <div class="desc">发现虚拟标的与成交量尖峰</div>
+              <div class="note">只标旗，不下单</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+          <button class="agent" data-role="risk" type="button">
+            <div class="glyph g-risk">险</div>
+            <div>
+              <p class="name">风险检查</p>
+              <div class="desc">过滤可疑虚拟标的</div>
+              <div class="note">未通过前不进入模拟执行</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+          <button class="agent" data-role="sizer" type="button">
+            <div class="glyph g-size">仓</div>
+            <div>
+              <p class="name">仓位计算</p>
+              <div class="desc">按模拟权益估算仓位</div>
+              <div class="note">不用固定票面，仅演示</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+          <button class="agent" data-role="executor" type="button">
+            <div class="glyph g-exec">执</div>
+            <div>
+              <p class="name">模拟执行</p>
+              <div class="desc">在模拟账本开平仓并记滑点</div>
+              <div class="note">模拟成交 · 非真实订单</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+          <button class="agent" data-role="logger" type="button">
+            <div class="glyph g-log">志</div>
+            <div>
+              <p class="name">日志</p>
+              <div class="desc">写入每条决策原因</div>
+              <div class="note">无原因不记模拟成交</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+          <button class="agent" data-role="equity" type="button">
+            <div class="glyph g-eq">资</div>
+            <div>
+              <p class="name">资金统计</p>
+              <div class="desc">更新模拟余额与曲线</div>
+              <div class="note">仅读取模拟账本</div>
+            </div>
+            <span class="badge" data-status>待命</span>
+          </button>
+        </div>
+        <div class="you"><strong>你</strong><span>早晨阅读决策日志 · 阅读中</span></div>
+      </aside>
+
+      <section class="right">
+        <div class="panel flow">
+          <h2>实时流程 LIVE FLOW · 演示信号</h2>
+          <div class="flow-pipeline" id="flowPipeline" aria-label="六角色流程">
+            <div class="pnode" data-prole="scanner">扫描<em>信号</em></div>
+            <div class="pnode" data-prole="risk">风险<em>检查</em></div>
+            <div class="pnode" data-prole="sizer">仓位<em>计算</em></div>
+            <div class="pnode" data-prole="executor">模拟<em>执行</em></div>
+            <div class="pnode" data-prole="logger">日志<em>记录</em></div>
+            <div class="pnode" data-prole="equity">资金<em>统计</em></div>
+          </div>
+          <div class="flow-canvas" id="flowCanvas">
+            <div class="flow-stage" id="flowStage">
+              <svg class="wires" viewBox="0 0 720 160" preserveAspectRatio="xMinYMin meet" aria-hidden="true">
+                <path id="wire1" d="M120 48 C210 48, 250 78, 330 82" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-dasharray="5 5"/>
+                <path id="wire2" d="M390 82 C470 82, 520 88, 600 92" fill="none" stroke="#a5b4fc" stroke-width="2" stroke-dasharray="5 5"/>
+                <polyline id="curveLine" fill="none" stroke="#4c6ef5" stroke-width="2.5" points="330,118 370,108 410,98 450,102 490,78 530,68 570,62 610,48"/>
+              </svg>
+              <div class="sig" id="sigA" style="left:18px; top:12px; opacity:.35"><span class="sym">DEMO-A</span><div class="tag">虚拟 · 量能尖峰</div></div>
+              <div class="sig" id="sigB" style="left:110px; top:72px; opacity:.35"><span class="sym">DEMO-B</span><div class="tag">虚拟 · 新标的</div></div>
+              <div class="sig" id="sigC" style="left:200px; top:18px; opacity:.35"><span class="sym">DEMO-C</span><div class="tag">虚拟 · 可疑</div></div>
+              <div class="node risk" id="nodeRisk" style="left:330px; top:54px;">风控</div>
+              <div class="node exec" id="nodeExec" style="left:600px; top:64px;">执行</div>
+            </div>
+          </div>
+          <div class="flow-foot">
+            <div class="mini"><div class="k">过滤</div><div class="v" id="miniFilter">—</div></div>
+            <div class="mini"><div class="k">仓位</div><div class="v" id="miniSizer">—</div></div>
+            <div class="mini"><div class="k">日志</div><div class="v" id="miniLogger">—</div></div>
+            <div class="mini"><div class="k">资金<span class="sim-tag">模拟</span></div><div class="v" id="miniEquity">1000.00</div></div>
+          </div>
+        </div>
+
+        <div class="mid">
+          <div class="panel trade-card">
+            <h2>成交详情 · 模拟账本 <span class="sim-tag">演示数据</span></h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+              <div style="font-size:14px; font-weight:800; font-family:var(--sans);" id="tradeTitle">暂无持仓</div>
+              <span class="pill green" id="tradeSide">FLAT</span>
+            </div>
+            <div class="row">
+              <div class="kv"><div class="k">入场</div><div class="v" id="kvEntry">—</div></div>
+              <div class="kv"><div class="k">出场</div><div class="v" id="kvExit">—</div></div>
+              <div class="kv"><div class="k">滑点（模拟）</div><div class="v" id="kvSlip">—</div></div>
+              <div class="kv"><div class="k">仓位（模拟）</div><div class="v" id="kvSize">—</div></div>
+            </div>
+            <div class="reason">
+              <div class="k">原因</div>
+              <div id="kvReason">等待演示推进…</div>
+            </div>
+          </div>
+          <div class="panel">
+            <h2>实时日志 · 本地 <span class="sim-tag">无外网</span></h2>
+            <div class="logbox" id="logBox">
+              <div class="head">$ tail -f demo-sim.log</div>
+              <div id="logLines"><div class="line"><span class="ts">[00]</span> 演示已就绪 · 默认暂停 · 点「继续演示」或「单步推进」</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="bottom">
+          <div class="panel">
+            <h2>结果 · 起始 vs 当前 <span class="sim-tag">模拟</span></h2>
+            <div class="bars">
+              <div class="bar-row">
+                <span>起始</span>
+                <div class="bar-track"><span class="bar-dot" title="起始"></span></div>
+                <strong id="startLabel">1000.00</strong>
+              </div>
+              <div class="bar-row">
+                <span>当前</span>
+                <div class="bar-track"><div class="bar-fill" id="nowBar"></div></div>
+                <strong id="nowLabel">1000.00</strong>
+              </div>
+            </div>
+            <svg class="curve-svg" id="equitySvg" viewBox="0 0 280 56" preserveAspectRatio="none" aria-label="模拟资金曲线">
+              <polyline id="equityPoly" fill="none" stroke="#4c6ef5" stroke-width="2" points="0,40 280,40"></polyline>
+            </svg>
+            <div class="bar-meta" id="pnlMeta">模拟盈亏 0.00 · 收益率 0.00% · 起始 + 盈亏 = 当前</div>
+          </div>
+          <div class="panel">
+            <h2>决策日志 <span class="sim-tag">演示</span></h2>
+            <div style="overflow:auto;">
+              <table class="decisions">
+                <thead>
+                  <tr><th>类型</th><th>状态</th><th>标的</th><th>原因</th><th>结果</th></tr>
+                </thead>
+                <tbody id="decisionBody">
+                  <tr><td colspan="5" style="color:#9ca3af;">尚无决策 · 推进演示后出现</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <div class="foot-note">
+      本页为本地静态展示：产品名「GBT 模拟交易看板」。全部金额、收益、成交、曲线均为<strong>模拟演示数据</strong>，不是真实业绩，不可用于投资决策。
+      虚拟标的 DEMO-A / DEMO-B / DEMO-C 不是真实证券。不接实盘、不接资金、不接行情、不选定市场或供应商。
+      可用 file:// 双击打开；无外部请求。按钮仅控制本地演示节奏。
+    </div>
+  </div>
+
+<script>
+(function () {
+  "use strict";
+
+  // Hard block accidental external network usage from this page.
+  try {
+    if (typeof window.fetch === "function") {
+      window.fetch = function () {
+        return Promise.reject(new Error("本演示禁用外部请求"));
+      };
+    }
+    if (window.XMLHttpRequest) {
+      var X = window.XMLHttpRequest;
+      window.XMLHttpRequest = function () {
+        var x = new X();
+        var open = x.open;
+        x.open = function (method, url) {
+          var u = String(url || "");
+          if (/^https?:/i.test(u) || /^wss?:/i.test(u)) {
+            throw new Error("本演示禁用外部请求: " + u);
+          }
+          return open.apply(x, arguments);
+        };
+        return x;
+      };
+    }
+  } catch (e) { /* ignore */ }
+
+  var START = 1000.00; // 演示单位
+  var state = {
+    step: 0,
+    playing: false,
+    timer: null,
+    balance: START,
+    realizedPnl: 0,
+    equitySeries: [START],
+    decisions: [],
+    logs: [],
+    trade: null,
+    roles: {
+      scanner: "待命",
+      risk: "待命",
+      sizer: "待命",
+      executor: "待命",
+      logger: "待命",
+      equity: "待命"
+    },
+    activeRole: null,
+    mini: { filter: "—", sizer: "—", logger: "—", equity: START.toFixed(2) },
+    skipText: "尚未跳过"
+  };
+
+  var STEPS = [
+    {
+      title: "扫描发现",
+      role: "scanner",
+      status: "扫描中",
+      log: "SCAN 发现虚拟标的 DEMO-A / DEMO-B / DEMO-C（非真实证券）",
+      apply: function () {
+        setRole("scanner", "扫描中");
+        setRole("risk", "待命"); setRole("sizer", "待命"); setRole("executor", "待命"); setRole("logger", "待命"); setRole("equity", "待命");
+        showSig(true, true, true);
+        state.mini.filter = "—";
+        state.skipText = "扫描完成";
+        document.getElementById("activeRolePill").textContent = "扫描";
+      }
+    },
+    {
+      title: "风险过滤",
+      role: "risk",
+      status: "通过/过滤",
+      log: "RISK 过滤 DEMO-C（持仓过于集中 · 虚拟示例）",
+      apply: function () {
+        setRole("scanner", "完成");
+        setRole("risk", "通过");
+        showSig(true, true, false);
+        state.mini.filter = "DEMO-C 已过滤";
+        addDecision("检查", "过滤", "DEMO-C", "持仓过于集中（演示）", "未交易");
+        document.getElementById("nodeRisk").classList.add("active");
+        document.getElementById("activeRolePill").textContent = "风险检查";
+        state.skipText = "已过滤 DEMO-C";
+      }
+    },
+    {
+      title: "仓位估算 DEMO-B",
+      role: "sizer",
+      status: "计算中",
+      log: "SIZE 评估 DEMO-B · 突破回落 · 跳过下单（演示）",
+      apply: function () {
+        setRole("risk", "通过");
+        setRole("sizer", "计算中");
+        state.mini.sizer = "DEMO-B 跳过";
+        addDecision("仓位", "跳过", "DEMO-B", "突破回落（演示）", "无订单");
+        document.getElementById("activeRolePill").textContent = "仓位计算";
+        state.skipText = "跳过 DEMO-B";
+      }
+    },
+    {
+      title: "仓位确认 DEMO-A",
+      role: "sizer",
+      status: "已定仓",
+      log: "SIZE DEMO-A 按模拟权益 8% 定仓 · 演示单位",
+      apply: function () {
+        setRole("sizer", "已定仓");
+        state.mini.sizer = "DEMO-A 8% 权益";
+        state.trade = {
+          title: "DEMO-A · 多头（模拟）",
+          side: "模拟多头",
+          entry: "已成交（模拟）",
+          exit: "—",
+          slip: "已跟踪（模拟）",
+          size: "模拟权益 8%",
+          reason: "新虚拟标的 · 买盘占优（演示原因，非真实信号）"
+        };
+        addDecision("仓位", "入场定仓", "DEMO-A", "尖峰延续（演示）", "已定仓");
+        document.getElementById("activeRolePill").textContent = "仓位计算";
+      }
+    },
+    {
+      title: "模拟开仓",
+      role: "executor",
+      status: "持仓中",
+      log: "EXEC 开仓 DEMO-A · 模拟成交 · 非真实订单",
+      apply: function () {
+        setRole("executor", "持仓中");
+        setRole("sizer", "完成");
+        document.getElementById("nodeExec").classList.add("active");
+        document.getElementById("nodeRisk").classList.remove("active");
+        if (state.trade) {
+          state.trade.entry = "已成交 @ 10.00（模拟价）";
+          state.trade.side = "模拟持仓";
+        }
+        addDecision("执行", "开仓", "DEMO-A", "按定仓模拟买入", "模拟持仓");
+        document.getElementById("activeRolePill").textContent = "模拟执行";
+      }
+    },
+    {
+      title: "模拟平仓",
+      role: "executor",
+      status: "已平仓",
+      log: "EXEC 平仓 DEMO-A · 止盈（模拟） · 记入模拟账本",
+      apply: function () {
+        setRole("executor", "已平仓");
+        // Realized demo PnL: +180.00 so start+pnl=current
+        var tradePnl = 180.00;
+        state.realizedPnl += tradePnl;
+        state.balance = round2(START + state.realizedPnl);
+        state.equitySeries.push(state.balance);
+        if (state.trade) {
+          state.trade.exit = "止盈 @ 11.80（模拟价）";
+          state.trade.side = "已平仓";
+          state.trade.reason = "新虚拟标的 · 买盘占优；出场：止盈触发（演示）";
+        }
+        addDecision("执行", "平仓", "DEMO-A", "止盈触发（演示）", "已平仓 +" + tradePnl.toFixed(2));
+        document.getElementById("activeRolePill").textContent = "模拟执行";
+      }
+    },
+    {
+      title: "写入日志",
+      role: "logger",
+      status: "已记录",
+      log: "LOG 记录 DEMO-A 开平仓原因与模拟盈亏",
+      apply: function () {
+        setRole("logger", "已记录");
+        setRole("executor", "空仓");
+        state.mini.logger = "DEMO-A 已记录";
+        document.getElementById("activeRolePill").textContent = "日志";
+      }
+    },
+    {
+      title: "更新资金",
+      role: "equity",
+      status: "已更新",
+      log: "EQUITY 模拟余额更新为 " + "1180.00" + " · 非真实资金",
+      apply: function () {
+        setRole("equity", "已更新");
+        setRole("logger", "完成");
+        // Ensure invariant: start + pnl = current
+        state.balance = round2(START + state.realizedPnl);
+        state.mini.equity = state.balance.toFixed(2);
+        if (state.equitySeries[state.equitySeries.length - 1] !== state.balance) {
+          state.equitySeries.push(state.balance);
+        }
+        // Second small demo trade on DEMO-B skipped already; optional bump for curve density
+        document.getElementById("activeRolePill").textContent = "资金统计";
+        state.skipText = "演示回合完成";
+      }
+    }
+  ];
+
+  function round2(n) { return Math.round(n * 100) / 100; }
+
+  function setRole(role, status) {
+    state.roles[role] = status;
+  }
+
+  function showSig(a, b, c) {
+    document.getElementById("sigA").style.opacity = a ? "1" : ".25";
+    document.getElementById("sigB").style.opacity = b ? "1" : ".25";
+    document.getElementById("sigC").style.opacity = c ? "1" : ".25";
+  }
+
+  function addDecision(type, status, sym, reason, result) {
+    state.decisions.unshift({ type: type, status: status, sym: sym, reason: reason, result: result });
+    if (state.decisions.length > 12) state.decisions.pop();
+  }
+
+  function addLog(msg) {
+    var idx = String(state.logs.length).padStart(2, "0");
+    state.logs.push({ idx: idx, msg: msg });
+    if (state.logs.length > 40) state.logs.shift();
+  }
+
+  function highlightRole(role) {
+    state.activeRole = role;
+    var nodes = document.querySelectorAll(".agent");
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      if (role && el.getAttribute("data-role") === role) el.classList.add("active");
+      else el.classList.remove("active");
+    }
+  }
+
+  function render() {
+    var bal = state.balance;
+    var pnl = round2(bal - START);
+    var ret = START === 0 ? 0 : (pnl / START) * 100;
+    var mult = START === 0 ? 1 : bal / START;
+
+    // Invariant check displayed
+    var ok = Math.abs((START + pnl) - bal) < 0.001;
+
+    document.getElementById("balVal").textContent = bal.toFixed(2);
+    document.getElementById("stepVal").textContent = state.step + "/" + STEPS.length;
+    document.getElementById("multVal").textContent = mult.toFixed(2) + "x";
+    document.getElementById("startLabel").textContent = START.toFixed(2);
+    document.getElementById("nowLabel").textContent = bal.toFixed(2);
+    var maxV = Math.max(START, bal, 1);
+    document.getElementById("nowBar").style.width = Math.min(100, (bal / maxV) * 100) + "%";
+    document.getElementById("pnlMeta").textContent =
+      "模拟盈亏 " + (pnl >= 0 ? "+" : "") + pnl.toFixed(2) +
+      " · 收益率 " + (ret >= 0 ? "+" : "") + ret.toFixed(2) + "%" +
+      " · 起始 " + START.toFixed(2) + " + 盈亏 " + pnl.toFixed(2) + " = 当前 " + bal.toFixed(2) +
+      (ok ? " ✓" : " ✗ 校验失败");
+
+    document.getElementById("miniFilter").textContent = state.mini.filter;
+    document.getElementById("miniSizer").textContent = state.mini.sizer;
+    document.getElementById("miniLogger").textContent = state.mini.logger;
+    document.getElementById("miniEquity").textContent = state.mini.equity;
+    document.getElementById("skipPill").textContent = state.skipText;
+
+    var roles = ["scanner","risk","sizer","executor","logger","equity"];
+    for (var i = 0; i < roles.length; i++) {
+      var r = roles[i];
+      var btn = document.querySelector('.agent[data-role="' + r + '"]');
+      if (!btn) continue;
+      var badge = btn.querySelector("[data-status]");
+      if (badge) badge.textContent = state.roles[r];
+    }
+
+    var t = state.trade;
+    if (!t) {
+      document.getElementById("tradeTitle").textContent = "暂无持仓";
+      document.getElementById("tradeSide").textContent = "空仓";
+      document.getElementById("kvEntry").textContent = "—";
+      document.getElementById("kvExit").textContent = "—";
+      document.getElementById("kvSlip").textContent = "—";
+      document.getElementById("kvSize").textContent = "—";
+      document.getElementById("kvReason").textContent = "等待演示推进…";
+    } else {
+      document.getElementById("tradeTitle").textContent = t.title;
+      document.getElementById("tradeSide").textContent = t.side;
+      document.getElementById("kvEntry").textContent = t.entry;
+      document.getElementById("kvExit").textContent = t.exit;
+      document.getElementById("kvSlip").textContent = t.slip;
+      document.getElementById("kvSize").textContent = t.size;
+      document.getElementById("kvReason").textContent = t.reason;
+    }
+
+    var logHtml = "";
+    for (var li = 0; li < state.logs.length; li++) {
+      logHtml += '<div class="line"><span class="ts">[' + state.logs[li].idx + ']</span> ' + escapeHtml(state.logs[li].msg) + "</div>";
+    }
+    if (!logHtml) logHtml = '<div class="line"><span class="ts">[00]</span> 演示已就绪 · 默认暂停</div>';
+    document.getElementById("logLines").innerHTML = logHtml;
+    var box = document.getElementById("logBox");
+    box.scrollTop = box.scrollHeight;
+
+    var body = document.getElementById("decisionBody");
+    if (!state.decisions.length) {
+      body.innerHTML = '<tr><td colspan="5" style="color:#9ca3af;">暂无决策 · 推进演示后出现</td></tr>';
+    } else {
+      var rows = "";
+      for (var di = 0; di < state.decisions.length; di++) {
+        var d = state.decisions[di];
+        rows += "<tr><td>" + escapeHtml(d.type) + "</td><td><span class='pill'>" + escapeHtml(d.status) +
+          "</span></td><td>" + escapeHtml(d.sym) + "</td><td>" + escapeHtml(d.reason) +
+          "</td><td>" + escapeHtml(d.result) + "</td></tr>";
+      }
+      body.innerHTML = rows;
+    }
+
+    // Equity curve
+    var series = state.equitySeries.slice();
+    if (series.length < 2) series = [START, bal];
+    var min = Math.min.apply(null, series);
+    var max = Math.max.apply(null, series);
+    if (max === min) { max = min + 1; }
+    var w = 280, h = 56, pad = 4;
+    var pts = [];
+    for (var si = 0; si < series.length; si++) {
+      var x = pad + (si / (series.length - 1)) * (w - pad * 2);
+      var y = pad + (1 - (series[si] - min) / (max - min)) * (h - pad * 2);
+      pts.push(x.toFixed(1) + "," + y.toFixed(1));
+    }
+    document.getElementById("equityPoly").setAttribute("points", pts.join(" "));
+
+    // Also update center decorative curve slightly with balance
+    var cpts = [];
+    var base = [118,108,98,102,78,68,62,48];
+    for (var ci = 0; ci < base.length; ci++) {
+      var cx = 330 + ci * 40;
+      var cy = base[ci] - Math.min(30, (mult - 1) * 20);
+      cpts.push(cx + "," + cy);
+    }
+    document.getElementById("curveLine").setAttribute("points", cpts.join(" "));
+    // 六角色流程条高亮
+    var proles = ["scanner","risk","sizer","executor","logger","equity"];
+    for (var pi = 0; pi < proles.length; pi++) {
+      var pn = document.querySelector('.flow-pipeline .pnode[data-prole="' + proles[pi] + '"]');
+      if (!pn) continue;
+      var st = state.roles[proles[pi]];
+      var lit = st && st !== "待命";
+      if (state.activeRole === proles[pi]) lit = true;
+      if (lit) pn.classList.add("on"); else pn.classList.remove("on");
+    }
+
+    // Playing UI
+    var paused = !state.playing;
+    document.getElementById("btnToggle").classList.toggle("playing", state.playing);
+    document.getElementById("liveDot").classList.toggle("off", paused);
+    document.getElementById("runLabel").textContent = state.playing ? "演示播放中 · 本地" : "已暂停 · 本地演示";
+    document.getElementById("btnToggle2").textContent = state.playing ? "暂停演示" : "继续演示";
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, function (c) {
+      return ({ "&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;" })[c];
+    });
+  }
+
+  function advance() {
+    if (state.step >= STEPS.length) {
+      pause();
+      addLog("演示回合结束 · 可点「重置演示」再看一遍");
+      render();
+      return;
+    }
+    var s = STEPS[state.step];
+    s.apply();
+    highlightRole(s.role);
+    addLog(s.log);
+    state.step += 1;
+    // keep mini equity in sync
+    state.mini.equity = state.balance.toFixed(2);
+    render();
+  }
+
+  function play() {
+    if (state.playing) return;
+    state.playing = true;
+    render();
+    state.timer = setInterval(function () {
+      if (state.step >= STEPS.length) {
+        pause();
+        addLog("演示回合结束 · 可点「重置演示」再看一遍");
+        render();
+        return;
+      }
+      advance();
+    }, 1400);
+  }
+
+  function pause() {
+    state.playing = false;
+    if (state.timer) {
+      clearInterval(state.timer);
+      state.timer = null;
+    }
+    render();
+  }
+
+  function toggle() {
+    if (state.playing) pause();
+    else play();
+  }
+
+  function reset() {
+    pause();
+    state.step = 0;
+    state.balance = START;
+    state.realizedPnl = 0;
+    state.equitySeries = [START];
+    state.decisions = [];
+    state.logs = [];
+    state.trade = null;
+    state.roles = { scanner:"待命", risk:"待命", sizer:"待命", executor:"待命", logger:"待命", equity:"待命" };
+    state.activeRole = null;
+    state.mini = { filter:"—", sizer:"—", logger:"—", equity: START.toFixed(2) };
+    state.skipText = "尚未跳过";
+    document.getElementById("nodeRisk").classList.remove("active");
+    document.getElementById("nodeExec").classList.remove("active");
+    document.getElementById("activeRolePill").textContent = "待命";
+    showSig(false, false, false);
+    highlightRole(null);
+    addLog("演示已重置 · 默认暂停 · 全部为演示数据");
+    render();
+  }
+
+
+  var FLOW_DESIGN_W = 720;
+  var FLOW_DESIGN_H = 160;
+  function fitFlowScale() {
+    var canvas = document.getElementById("flowCanvas");
+    var stage = document.getElementById("flowStage");
+    if (!canvas || !stage) return;
+    var w = canvas.clientWidth || canvas.offsetWidth || FLOW_DESIGN_W;
+    if (w < 1) w = FLOW_DESIGN_W;
+    var scale = Math.min(1, w / FLOW_DESIGN_W);
+    // 窄屏必须缩放到完整可见，不裁切执行节点
+    stage.style.transform = "scale(" + scale + ")";
+    canvas.style.height = (FLOW_DESIGN_H * scale) + "px";
+  }
+  if (typeof ResizeObserver !== "undefined") {
+    var ro = new ResizeObserver(function () { fitFlowScale(); });
+    var fc = document.getElementById("flowCanvas");
+    if (fc) ro.observe(fc);
+  }
+  window.addEventListener("resize", fitFlowScale);
+
+  // Wire controls
+  document.getElementById("btnToggle").addEventListener("click", toggle);
+  document.getElementById("btnToggle2").addEventListener("click", toggle);
+  document.getElementById("btnStep").addEventListener("click", function () {
+    pause();
+    advance();
+  });
+  document.getElementById("btnReset").addEventListener("click", reset);
+
+  var agentNodes = document.querySelectorAll(".agent");
+  for (var ai = 0; ai < agentNodes.length; ai++) {
+    agentNodes[ai].addEventListener("click", function (ev) {
+      var role = ev.currentTarget.getAttribute("data-role");
+      highlightRole(role);
+      document.getElementById("activeRolePill").textContent = ({
+        scanner: "扫描", risk: "风险检查", sizer: "仓位计算",
+        executor: "模拟执行", logger: "日志", equity: "资金统计"
+      })[role] || role;
+    });
+  }
+
+  // Self-check invariants at boot (no network)
+  (function selfCheck() {
+    var a = 1000, p = 180, c = a + p;
+    if (Math.abs(c - 1180) > 1e-9) throw new Error("模拟数据公式错误");
+    if (Math.abs((c - a) / a * 100 - 18) > 1e-9) throw new Error("收益率计算错误");
+  })();
+
+  reset();
+  fitFlowScale();
+})();
+</script>
+</body>
+</html>
